@@ -138,6 +138,13 @@ local pages = {
             parent_style.vertically_stretchable = true
 
             header_label(parent, 'Welcome to the Redmew Server!')
+
+            local logo_flow = parent.add {type = 'flow'}
+            local logo_flow_style = logo_flow.style
+            logo_flow_style.align = 'center'
+            logo_flow_style.horizontally_stretchable = true
+            logo_flow.add {type = 'sprite', sprite = 'file/redmew.png'}
+
             centered_label(
                 parent,
                 [[
@@ -540,12 +547,13 @@ local function draw_main_frame(center, player)
     frame_style.right_padding = 16
     frame_style.top_padding = 16
 
-    local top_flow = frame.add {type = 'flow'}
+    local top_flow = frame.add {type = 'flow', direction = 'horizontal'}
     local top_flow_style = top_flow.style
     top_flow_style.align = 'center'
     top_flow_style.top_padding = 8
     top_flow_style.horizontally_stretchable = true
 
+    top_flow.add {type = 'sprite', sprite = 'file/redmew-small.png'}
     local title_grid = top_flow.add {type = 'table', column_count = title_max}
     for _, row in ipairs(title) do
         for _, char in ipairs(row) do
@@ -642,7 +650,15 @@ local function player_created(event)
 
     local gui = player.gui
 
-    gui.top.add {type = 'sprite-button', name = main_button_name, sprite = 'utility/questionmark'}
+    local button = gui.top.add {type = 'button', name = main_button_name}
+    local button_style = button.style
+    button_style.width = 38
+    button_style.height = 38
+    button_style.top_padding = 2
+    button_style.left_padding = 2
+    button_style.right_padding = 0
+    button_style.bottom_padding = 0
+    button.add {type = 'sprite', name = main_button_name, sprite = 'file/redmew-tiny.png'}
 
     if player.admin or UserGroups.is_regular(player.name) or welcomed_players[player.index] then
         return
