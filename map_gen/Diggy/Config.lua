@@ -103,11 +103,11 @@ local Config = {
             -- percentage of resource added to the sum. 100 tiles means
             -- 10% more resources with a distance_richness_modifier of 10
             -- 20% more resources with a distance_richness_modifier of 5
-            distance_richness_modifier = 6,
+            distance_richness_modifier = 4,
 
             -- defines the increased chance of spawning resources
             -- calculated_probability = resource_probability + ((distance / distance_probability_modifier) / 100)
-            distance_probability_modifier = 10,
+            distance_probability_modifier = 12,
 
             -- increases the amount of oil * oil_value_modifier
             oil_value_modifier = 750,

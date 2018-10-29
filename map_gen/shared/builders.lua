@@ -1,4 +1,4 @@
-local math = require "utils.math"
+local math = require 'utils.math'
 
 -- helpers
 tau = 2 * math.pi
@@ -1454,6 +1454,16 @@ function Builders.prepare_weighted_array(array)
     weights.total = total
 
     return weights
+end
+
+function Builders.get_weighted_item(array, weights, index)
+    index = table.binary_search(weights, index)
+
+    if (index < 0) then
+        index = bit32.bnot(index)
+    end
+
+    return array[index]
 end
 
 return Builders

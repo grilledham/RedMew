@@ -118,6 +118,7 @@ local entity_modules = {
 	--require "map_gen.ores.harmonic_gen",
 	--require "map_gen.ores.resource_clustertruck"
 	--require "map_gen.ores.tiny_ores"
+	require ("map_gen.misc.trick_or_treat_chests")()
 }
 
 local terrain_modules = {
@@ -154,6 +155,6 @@ if shape then
 		['nauvis'] = shape,
 	}
 
-    require('map_gen.shared.generate')({surfaces = surfaces, regen_decoratives = regen_decoratives, tiles_per_tick = tiles_per_tick})
-	--require ("map_gen.shared.generate_not_threaded")({surfaces = surfaces, regen_decoratives = regen_decoratives})
+    --require('map_gen.shared.generate')({surfaces = surfaces, regen_decoratives = regen_decoratives, tiles_per_tick = tiles_per_tick})
+	require ("map_gen.shared.generate_not_threaded")({surfaces = surfaces, regen_decoratives = regen_decoratives})
 end
