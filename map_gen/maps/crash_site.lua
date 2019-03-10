@@ -2,6 +2,7 @@ require 'map_gen.maps.crash_site.blueprint_extractor'
 require 'map_gen.maps.crash_site.entity_died_events'
 require 'map_gen.maps.crash_site.weapon_balance'
 require 'map_gen.maps.crash_site.commands'
+local Ending = require 'map_gen.maps.crash_site.ending'
 
 local b = require 'map_gen.shared.builders'
 local Global = require('utils.global')
@@ -44,6 +45,16 @@ global.config.market.enabled = false
 -- leave seeds nil to have them filled in based on the map seed.
 local outpost_seed = nil --91000
 local ore_seed = nil --92000
+
+local outpost_offset = 59
+local grid_block_size = 180
+local grid_number_of_blocks = 9
+local total_size = grid_block_size * grid_number_of_blocks
+local half_total_size = total_size / 2
+
+local mini_outpost_offset = 36
+local mini_grid_block_size = 96
+local mini_grid_number_of_blocks = 21
 
 local small_iron_plate_factory = require 'map_gen.maps.crash_site.outpost_data.small_iron_plate_factory'
 local medium_iron_plate_factory = require 'map_gen.maps.crash_site.outpost_data.medium_iron_plate_factory'
@@ -373,14 +384,6 @@ local function init()
         b.rotate(water_corner, degrees(270)),
         start_outpost
     }
-
-    local outpost_offset = 59
-    local grid_block_size = 180
-    local grid_number_of_blocks = 9
-
-    local mini_outpost_offset = 36
-    local mini_grid_block_size = 96
-    local mini_grid_number_of_blocks = 21
 
     local pattern = {}
 
@@ -774,6 +777,10 @@ Global.register_init(
         ore_seed = tbl.ore_seed
         map = init()
     end
+)
+
+Ending.register(
+    {top_left = {x = -half_total_size, y = -half_total_size}, bottom_right = {x = half_total_size, y = half_total_size}}
 )
 
 return function(x, y, world)

@@ -1199,6 +1199,7 @@ local function do_magic_crafters()
         local entity = data.entity
         if not entity.valid then
             fast_remove(magic_crafters, index)
+            limit = limit - 1
         else
             index = index + 1
 
