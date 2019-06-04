@@ -1,6 +1,6 @@
 local Event = require 'utils.event'
 
-global.allowed_landfill_tiles = {}
+global.allowed_landfill_tiles = {['water'] = true}
 
 Event.add(
     defines.events.on_player_built_tile,
