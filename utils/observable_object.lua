@@ -3,6 +3,7 @@ local Token = require 'utils.token'
 local table = require 'utils.table'
 
 local setmetatable = setmetatable
+local rawget = rawget
 local fast_remove = table.fast_remove
 local token_get = Token.get
 
@@ -64,7 +65,7 @@ function Public.on_property_changed(self, key, handler, data)
     key_handlers[#key_handlers + 1] = {handler = handler, data = data}
 end
 
-function Public.remove_on_property_changed(self, key, handler)
+function Public.remove_on_property_changed(self, key, handler, data)
     local all_handlers = self._handlers
     local key_handlers = all_handlers[key]
 
@@ -73,8 +74,8 @@ function Public.remove_on_property_changed(self, key, handler)
     end
 
     for i = 1, #key_handlers do
-        local h = key_handlers[i].handler
-        if h == handler then
+        local entry = key_handlers[i]
+        if entry.handler == handler and entry.data == data then
             fast_remove(key_handlers, i)
             return
         end
@@ -98,7 +99,7 @@ end
 local raise = Public.raise
 
 function Public.__index(obj, key)
-    return Public[key] or obj._props[key]
+    return rawget(Public, key) or obj._props[key]
 end
 
 function Public.__newindex(obj, key, value)

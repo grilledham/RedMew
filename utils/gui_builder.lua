@@ -3,6 +3,7 @@ local Token = require 'utils.token'
 local Event = require 'utils.event'
 local table = require 'utils.table'
 local ObservableObject = require 'utils.observable_object'
+local ObservableArray = require 'utils.observable_array'
 
 local fast_remove = table.fast_remove
 
@@ -101,7 +102,16 @@ end
 Public.get_data = get_from_store
 
 local function get_view_model(element)
+    if element == nil then
+        return
+    end
+
     local data = get_from_store(element)
+
+    if not data then
+        return get_view_model(element.parent)
+    end
+
     local view_model = data.view_model
     if view_model ~= nil then
         return view_model
@@ -116,8 +126,42 @@ local function get_view_model(element)
 end
 Public.get_view_model = get_view_model
 
-local function get_view_data(element)
+local function get_item_source(element)
+    if element == nil then
+        return
+    end
+
     local data = get_from_store(element)
+
+    if not data then
+        return get_item_source(element.parent)
+    end
+
+    local item_source = data.item_source
+    if item_source ~= nil then
+        return item_source
+    end
+
+    item_source = get_item_source(element.parent)
+    if item_source ~= nil then
+        data.item_source = item_source
+    end
+
+    return item_source
+end
+Public.get_item_source = get_item_source
+
+local function get_view_data(element)
+    if element == nil then
+        return
+    end
+
+    local data = get_from_store(element)
+
+    if not data then
+        return get_view_data(element.parent)
+    end
+
     local view_data = data.view_data
     if view_data ~= nil then
         return view_data
@@ -138,30 +182,45 @@ local function get_tag(element)
 end
 Public.get_tag = get_tag
 
-function Public.add_to(template, parent, view_model)
+local data_props = {
+    --tag = '_tag',
+    --view_data = '_view_data',
+    view_model = '_view_model'
+    --item_source = '_item_source'
+}
+
+function Public.add_to(template, parent, data)
+    data = data or {}
+
     local element = parent.add(template._props)
 
-    local data = {template = template}
+    local element_data = {template = template}
+    add_to_store(element, element_data)
 
-    local vmt = type(view_model)
+    element_data.tag = data.tag or template._tag
+    element_data.view_data = data.view_data
 
-    if vmt == 'table' then
-        data.view_model = view_model
-    elseif vmt == 'function' then
-        data.view_model = view_model(element, data)
-    elseif view_model ~= nil then
-        error('view_model must be a table or function', 2)
+    local view_model = data.view_model
+    if view_model then
+        element_data.view_model = view_model
+    else
+        local view_model_getter = template._view_model
+        if view_model_getter then
+            view_model_getter = Token.get(view_model_getter)
+            element_data.view_model = view_model_getter(element, element_data)
+        end
     end
 
-    local vd = template._view_data
-    if vd then
-        vd = Token.get(vd)
-        data.view_data = vd(element, data)
+    local item_source = data.item_source
+    if item_source then
+        element_data.item_source = item_source
+    else
+        local item_source_getter = template._item_source
+        if item_source_getter then
+            item_source_getter = Token.get(item_source_getter)
+            element_data.item_source = item_source_getter(element, element_data)
+        end
     end
-
-    data.tag = template._tag
-
-    add_to_store(element, data)
 
     local style = template._style
     if style then
@@ -176,7 +235,7 @@ function Public.add_to(template, parent, view_model)
         for i = 1, #add do
             local a = add[i]
             a = Token.get(a)
-            a(element, data)
+            a(element, element_data)
         end
     end
 
@@ -191,18 +250,20 @@ function Public.destroy(element)
     end
 
     local data = get_from_store(element)
-    local template = data.template
+    if data then
+        local template = data.template
 
-    local remove = template._remove
-    if remove then
-        for i = 1, #remove do
-            local r = remove[i]
-            r = Token.get(r)
-            r(element, data)
+        local remove = template._remove
+        if remove then
+            for i = 1, #remove do
+                local r = remove[i]
+                r = Token.get(r)
+                r(element, data)
+            end
         end
-    end
 
-    remove_from_store(element)
+        remove_from_store(element)
+    end
 
     element.destroy()
 end
@@ -232,6 +293,9 @@ end
 local event_mt = {
     view_data = function(self)
         return get_view_data(self.element)
+    end,
+    item_source = function(self)
+        return get_item_source(self.element)
     end,
     view_model = function(self)
         return get_view_model(self.element)
@@ -300,7 +364,7 @@ local function handler_factory(event_id)
         local handlers = event_handlers[event_id]
 
         local element = event.element
-        if not element.valid then
+        if not element or not element.valid then
             return
         end
 
@@ -414,17 +478,6 @@ function Public.children(template, children)
     return create_new(template, {_add = new_add})
 end
 
-function Public.view_data(template, view_data_getter)
-    if not view_data_getter then
-        view_data_getter = template
-        template = default_template
-    end
-
-    view_data_getter = Token.register(view_data_getter)
-
-    return create_new(template, {_view_data = view_data_getter})
-end
-
 function Public.tag(template, tag)
     if not tag then
         tag = template
@@ -432,6 +485,49 @@ function Public.tag(template, tag)
     end
 
     return create_new(template, {_tag = tag})
+end
+
+function Public.view_data(template, view_data)
+    if not view_data then
+        view_data = template
+        template = default_template
+    end
+
+    return create_new(template, {_view_data = view_data})
+end
+
+function Public.view_model(template, view_model)
+    if not view_model then
+        view_model = template
+        template = default_template
+    end
+
+    if type(view_model) ~= 'function' then
+        view_model = function()
+            return view_model
+        end
+    end
+
+    view_model = Token.register(view_model)
+
+    return create_new(template, {_view_model = view_model})
+end
+
+function Public.item_source(template, item_source)
+    if not item_source then
+        item_source = template
+        template = default_template
+    end
+
+    if type(item_source) ~= 'function' then
+        item_source = function()
+            return item_source
+        end
+    end
+
+    item_source = Token.register(item_source)
+
+    return create_new(template, {_item_source = item_source})
 end
 
 local function split(str, char)
@@ -517,6 +613,11 @@ local context_map = {
 }
 
 function Public.bind(template, args)
+    if not args then
+        args = template
+        template = default_template
+    end
+
     local context = args.context or 'view_model'
     local target = split(args.target, '.')
     local source = split(args.source, '.')
@@ -554,7 +655,137 @@ function Public.bind(template, args)
         function(element)
             local obj = context_getter(element)
             if getmetatable(obj) == ObservableObject then
-                obj:remove_on_property_changed(key, handler)
+                obj:remove_on_property_changed(key, handler, element)
+            end
+        end
+    )
+
+    local new_add = append(template._add, add)
+    local new_remove = append(template._remove, remove)
+
+    return create_new(template, {_add = new_add, _remove = new_remove})
+end
+
+local function template_bounds(index, templates_count)
+    local upper = index * templates_count
+    local lower = upper - templates_count + 1
+
+    return lower, upper
+end
+
+function Public.item_templates(template, templates)
+    if not templates then
+        templates = template
+        template = default_template
+    end
+
+    local templates_count = #templates
+
+    local handler =
+        Token.register(
+        function(event)
+            local array = event.array
+            local key = event.key
+            local value = event.value
+            local element = event.data
+            local children = element.children
+
+            -- reset
+            if key == nil then
+                for i = 1, #children do
+                    Public.destroy(element.children[i])
+                end
+
+                for i = 1, #array do
+                    for j = 1, templates_count do
+                        local item = array[i]
+                        local temp = templates[j]
+
+                        local flow = element.add {type = 'flow'}
+                        temp:add_to(flow, {view_model = item})
+                    end
+                end
+
+                return
+            end
+
+            local l, u = template_bounds(key, templates_count)
+
+            -- remove row
+            if value == nil then
+                for i = l, u do
+                    Public.destroy(children[i])
+                end
+
+                return
+            end
+
+            -- update row
+            if children[l] then
+                for i = l, u do
+                    Public.destroy(children[i].children[1])
+                end
+
+                local i = l
+                for j = 1, templates_count do
+                    local temp = templates[j]
+
+                    local flow = children[i]
+                    temp:add_to(flow, {view_model = value})
+
+                    i = i + 1
+                end
+
+                return
+            end
+
+            -- add row
+            for j = 1, templates_count do
+                local temp = templates[j]
+
+                local flow = element.add {type = 'flow'}
+                temp:add_to(flow, {view_model = value})
+            end
+        end
+    )
+
+    local add =
+        Token.register(
+        function(element)
+            local item_source = get_item_source(element)
+
+            if item_source == nil then
+                return
+            end
+
+            if getmetatable(item_source) == ObservableArray then
+                item_source:on_array_changed(handler, element)
+                item_source = item_source._array
+            end
+
+            for i = 1, #item_source do
+                for j = 1, templates_count do
+                    local item = item_source[i]
+                    local temp = templates[j]
+
+                    local flow = element.add {type = 'flow'}
+                    temp:add_to(flow, {view_model = item})
+                end
+            end
+        end
+    )
+
+    local remove =
+        Token.register(
+        function(element)
+            local item_source = get_item_source(element)
+
+            if item_source == nil then
+                return
+            end
+
+            if getmetatable(item_source) == ObservableArray then
+                item_source:remove_on_array_changed(handler, element)
             end
         end
     )
