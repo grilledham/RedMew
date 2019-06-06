@@ -1,8 +1,8 @@
-local Gui = require 'utils.gui'
 local Global = require 'utils.global'
 local Token = require 'utils.token'
 local Event = require 'utils.event'
 local table = require 'utils.table'
+local ObservableObject = require 'utils.observable_object'
 
 local fast_remove = table.fast_remove
 
@@ -100,37 +100,66 @@ end
 
 Public.get_data = get_from_store
 
-function Public.add_to(template, parent)
+local function get_view_model(element)
+    local data = get_from_store(element)
+    local view_model = data.view_model
+    if view_model ~= nil then
+        return view_model
+    end
+
+    view_model = get_view_model(element.parent)
+    if view_model ~= nil then
+        data.view_model = view_model
+    end
+
+    return view_model
+end
+Public.get_view_model = get_view_model
+
+local function get_view_data(element)
+    local data = get_from_store(element)
+    local view_data = data.view_data
+    if view_data ~= nil then
+        return view_data
+    end
+
+    view_data = get_view_data(element.parent)
+    if view_data ~= nil then
+        data.view_data = view_data
+    end
+
+    return view_data
+end
+Public.get_view_data = get_view_data
+
+local function get_tag(element)
+    local data = get_from_store(element)
+    return data.tag
+end
+Public.get_tag = get_tag
+
+function Public.add_to(template, parent, view_model)
     local element = parent.add(template._props)
 
     local data = {template = template}
 
-    local vmp = template._view_model_provider
-    local vmpt = type(vmp)
+    local vmt = type(view_model)
 
-    if vmpt == 'table' then
-        data.view_model = vmp
-    elseif vmpt == 'function' then
-        data.view_model = vmp(element, template)
-    elseif vmp ~= nil then
+    if vmt == 'table' then
+        data.view_model = view_model
+    elseif vmt == 'function' then
+        data.view_model = view_model(element, data)
+    elseif view_model ~= nil then
         error('view_model must be a table or function', 2)
     end
 
-    local vdp = template._view_data_provider
-    local vdpt = type(vdp)
-
-    if vdpt == 'table' then
-        for k, v in pairs(vdp) do
-            data[k] = v
-        end
-    elseif vdpt == 'function' then
-        local view_data = vdp(element, template)
-        for k, v in pairs(view_data) do
-            data[k] = v
-        end
-    elseif vdp ~= nil then
-        error('view_data must be a table or function', 2)
+    local vd = template._view_data
+    if vd then
+        vd = Token.get(vd)
+        data.view_data = vd(element, data)
     end
+
+    data.tag = template._tag
 
     add_to_store(element, data)
 
@@ -145,7 +174,9 @@ function Public.add_to(template, parent)
     local add = template._add
     if add then
         for i = 1, #add do
-            add[i](template, element)
+            local a = add[i]
+            a = Token.get(a)
+            a(element, data)
         end
     end
 
@@ -165,7 +196,9 @@ function Public.destroy(element)
     local remove = template._remove
     if remove then
         for i = 1, #remove do
-            remove[i](template, element)
+            local r = remove[i]
+            r = Token.get(r)
+            r(element, data)
         end
     end
 
@@ -196,11 +229,26 @@ function Public.style(template, style)
     return create_new(template, {_style = new_style})
 end
 
+local event_mt = {
+    view_data = function(self)
+        return get_view_data(self.element)
+    end,
+    view_model = function(self)
+        return get_view_model(self.element)
+    end,
+    tag = function(self)
+        return get_tag(self.element)
+    end
+}
+function event_mt.__index(self, key)
+    return event_mt[key](self)
+end
+
 local function handler_factory(event_id)
-    local handlers = {}
-    event_handlers[event_id] = handlers
+    event_handlers[event_id] = {}
 
     local function add_handler(element, handler_token)
+        local handlers = event_handlers[event_id]
         local pi, ei = element.player_index, element.index
 
         local player_handlers = handlers[pi]
@@ -219,6 +267,7 @@ local function handler_factory(event_id)
     end
 
     local function remove_handler(element, handler_token)
+        local handlers = event_handlers[event_id]
         local pi, ei = element.player_index, element.index
 
         local player_handlers = handlers[pi]
@@ -248,6 +297,8 @@ local function handler_factory(event_id)
     end
 
     local function raise_handlers(event)
+        local handlers = event_handlers[event_id]
+
         local element = event.element
         if not element.valid then
             return
@@ -272,6 +323,8 @@ local function handler_factory(event_id)
             return
         end
 
+        setmetatable(event, event_mt)
+
         for i = 1, #element_handlers do
             local ht = element_handlers[i]
             local func = Token.get(ht)
@@ -289,12 +342,19 @@ local function handler_factory(event_id)
 
         local token = Token.register(handler)
 
-        local function add(_, e)
-            add_handler(e, token)
-        end
-        local function remove(_, e)
-            remove_handler(e, token)
-        end
+        local add =
+            Token.register(
+            function(e)
+                add_handler(e, token)
+            end
+        )
+
+        local remove =
+            Token.register(
+            function(e)
+                remove_handler(e, token)
+            end
+        )
 
         local new_add = append(template._add, add)
         local new_remove = append(template._remove, remove)
@@ -317,6 +377,8 @@ function Public.on_add(template, callback)
         template = default_template
     end
 
+    callback = Token.register(callback)
+
     local new_add = append(template._add, callback)
     return create_new(template, {_add = new_add})
 end
@@ -326,6 +388,8 @@ function Public.on_remove(template, callback)
         callback = template
         template = default_template
     end
+
+    callback = Token.register(callback)
 
     local new_remove = append(template._remove, callback)
     return create_new(template, {_remove = new_remove})
@@ -337,97 +401,163 @@ function Public.children(template, children)
         template = default_template
     end
 
-    local function add(t, element)
-        for i = 1, #children do
-            children[i]:add_to(element)
+    local add =
+        Token.register(
+        function(element)
+            for i = 1, #children do
+                children[i]:add_to(element)
+            end
         end
-    end
+    )
 
     local new_add = append(template._add, add)
     return create_new(template, {_add = new_add})
 end
 
-function Public.view_model(template, view_model)
-    if not view_model then
-        view_model = template
+function Public.view_data(template, view_data_getter)
+    if not view_data_getter then
+        view_data_getter = template
         template = default_template
     end
 
-    return create_new(template, {_view_model_provider = view_model})
+    view_data_getter = Token.register(view_data_getter)
+
+    return create_new(template, {_view_data = view_data_getter})
 end
 
-function Public.view_data(template, view_data)
-    if not view_data then
-        view_data = template
+function Public.tag(template, tag)
+    if not tag then
+        tag = template
         template = default_template
     end
 
-    return create_new(template, {_view_data_provider = view_data})
+    return create_new(template, {_tag = tag})
 end
 
-function Public.bind(template, element_prop, source_prop)
-    if not source_prop then
-        source_prop = element_prop
-        element_prop = template
-        template = default_template
+local function split(str, char)
+    if type(str) == 'table' then
+        return str
     end
+
+    local result = {}
+    local count = 0
+    local len = #str
+
+    local last = 1
+    for i = 1, len do
+        local c = str:sub(i, i)
+        if c == char then
+            local sub = str:sub(last, i - 1)
+            last = i + 1
+
+            if sub ~= '' then
+                count = count + 1
+                result[count] = sub
+            end
+        end
+    end
+
+    if len >= last then
+        result[count + 1] = str:sub(last, len)
+    end
+
+    return result
+end
+
+local function build_bind_getter(props, convert_from)
+    local count = #props
+
+    if convert_from then
+        return function(obj)
+            for i = 1, count do
+                obj = obj[props[i]]
+            end
+
+            return convert_from(obj)
+        end
+    else
+        return function(obj)
+            for i = 1, count do
+                obj = obj[props[i]]
+            end
+            return obj
+        end
+    end
+end
+
+local function build_bind_setter(props, convert_to)
+    local count = #props
+
+    if convert_to then
+        return function(value, obj)
+            for i = 1, count - 1 do
+                obj = obj[props[i]]
+            end
+
+            obj[props[count]] = convert_to(value)
+        end
+    else
+        return function(value, obj)
+            for i = 1, count - 1 do
+                obj = obj[props[i]]
+            end
+
+            obj[props[count]] = value
+        end
+    end
+end
+
+local context_map = {
+    ['view_model'] = get_view_model,
+    ['view_data'] = get_view_data,
+    ['tag'] = get_tag,
+    ['self'] = function(element)
+        return element
+    end
+}
+
+function Public.bind(template, args)
+    local context = args.context or 'view_model'
+    local target = split(args.target, '.')
+    local source = split(args.source, '.')
+    local convert_to = args.convert_to
+    --local convert_from = args.convert_from
+
+    local key = source[1]
+    local getter = build_bind_getter(source)
+    local setter = build_bind_setter(target, convert_to)
+    local context_getter = context_map[context]
 
     local handler =
         Token.register(
-        function(value, key, element)
-            element[element_prop] = value
+        function(obj, element)
+            local value = getter(obj)
+            setter(value, element)
         end
     )
 
-    local function add(t, element)
-        local data = get_from_store(element)
-        local view_model = data.view_model
-
-        view_model:on_property_changed(source_prop, handler, element)
-
-        element[element_prop] = view_model[source_prop]
-    end
-
-    local function remove(t, element)
-        local data = get_from_store(element)
-        local view_model = data.view_model
-        view_model:remove_on_property_changed(source_prop, handler)
-    end
-
-    local new_add = append(template._add, add)
-    local new_remove = append(template._remove, remove)
-
-    return create_new(template, {_add = new_add, _remove = new_remove})
-end
-
-function Public.bind_style(template, style_prop, source_prop)
-    if not source_prop then
-        source_prop = style_prop
-        style_prop = template
-        template = default_template
-    end
-
-    local handler =
+    local add =
         Token.register(
-        function(value, key, element)
-            element.style[style_prop] = value
+        function(element)
+            local obj = context_getter(element)
+            if getmetatable(obj) == ObservableObject then
+                obj:on_property_changed(key, handler, element)
+            end
+
+            local value = getter(obj)
+            setter(value, element)
         end
     )
 
-    local function add(t, element)
-        local data = get_from_store(element)
-        local view_model = data.view_model
-
-        view_model:on_property_changed(source_prop, handler, element)
-
-        element.style[style_prop] = view_model[source_prop]
-    end
-
-    local function remove(t, element)
-        local data = get_from_store(element)
-        local view_model = data.view_model
-        view_model:remove_on_property_changed(source_prop, handler)
-    end
+    local remove =
+        Token.register(
+        function(element)
+            local obj = context_getter(element)
+            if getmetatable(obj) == ObservableObject then
+                obj:remove_on_property_changed(key, handler)
+            end
+        end
+    )
 
     local new_add = append(template._add, add)
     local new_remove = append(template._remove, remove)

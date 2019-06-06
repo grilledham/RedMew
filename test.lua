@@ -1,55 +1,52 @@
-local ViewModelBase = require 'utils.view_model_base'
+local ViewModel = require 'utils.view_model'
 local g = require 'utils.gui_builder'
+local Event = require 'utils.event'
+local Global = require 'utils.global'
 
-local vm = ViewModelBase.extend({})
-vm.count = 0
-
-local base = g.view_model(vm)
-
-local button = base:props({type = 'button'}):style({font = 'default-large-bold', height = 64, width = 128})
-local add_button =
-    button:on_click(
+local button =
+    g.props({type = 'button'}):on_click(
     function(event)
-        local element = event.element
-        local data = g.get_data(element)
-        local amount = data.amount
-        local view_model = data.view_model
+        local view_model = event.view_model
+        local tag = event.tag
 
-        local old_count = view_model.count
-        view_model:set('count', old_count + amount)
+        local old_count = view_model['count']
+        view_model:set('count', old_count + tag)
     end
 )
+local add = button:props({caption = 'add'}):tag(1)
+local remove = button:props({caption = 'remove'}):tag(-1)
+local label = g.props({type = 'label'}):bind({target = 'caption', source = 'count'})
 
-local buttons = {}
+local frame = g.props({type = 'frame'}):children({add, remove, label})
 
-for i = 1, 9 do
-    buttons[#buttons + 1] = add_button:props({caption = i}):view_data({amount = i})
+local function open(event)
+    local player = game.get_player(event.player_index)
+    local center = player.gui.center
+
+    local vm = ViewModel.new()
+    vm.count = 10
+
+    frame:add_to(center, vm)
 end
 
-local grid = g.props({type = 'table', column_count = 3}):children(buttons)
+local function close(event)
+    local player = game.get_player(event.player_index)
+    local center = player.gui.center
 
-local label =
-    base:props({type = 'label'}):style(
-    {
-        horizontal_align = 'right',
-        vertical_align = 'center',
-        font = 'default-large-bold'
-    }
-):bind('caption', 'count')
-
-local expand_flow = g.props({type = 'flow'}):style({horizontally_stretchable = true})
-local label_flow = g.props({'flow'}):children({expand_flow, label})
-
-local frame = g.props({type = 'frame', direction = 'vertical'}):children({label_flow, grid})
-
-function open()
-    local center = game.player.gui.center
-    frame:add_to(center)
-end
-
-function close()
-    local center = game.player.gui.center
     local fe = center.children[1]
-
     g.destroy(fe)
 end
+
+local open_button = g.props({type = 'button', caption = 'open'}):on_click(open)
+local close_button = g.props({type = 'button', caption = 'close'}):on_click(close)
+
+Event.add(
+    defines.events.on_player_created,
+    function(event)
+        local player = game.get_player(event.player_index)
+
+        local top = player.gui.top
+        open_button:add_to(top)
+        close_button:add_to(top)
+    end
+)

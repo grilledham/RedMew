@@ -138,8 +138,8 @@ if config.redmew_settings.enabled then
     require 'features.gui.redmew_settings'
 end
 
-require 'test'
---require 'color_picker'
+--require 'test'
+require 'color_picker'
 
 -- Debug-only modules
 if _DEBUG then

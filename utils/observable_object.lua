@@ -2,17 +2,24 @@ local Global = require 'utils.global'
 local Token = require 'utils.token'
 local table = require 'utils.table'
 
+local setmetatable = setmetatable
+local fast_remove = table.fast_remove
+local token_get = Token.get
+
 local Public = {}
-Public.__index = Public
+
+local weak_table = {__mode = 'v'}
 
 local counter = {0}
-local store = {}
+local store = setmetatable({}, weak_table)
 
 Global.register(
     {counter = counter, store = store},
     function(tbl)
         counter = tbl.counter
         store = tbl.store
+
+        setmetatable(store, weak_table)
 
         for k, v in pairs(store) do
             setmetatable(v, Public)
@@ -27,16 +34,18 @@ local function get_id()
     return count
 end
 
-function Public.extend(new)
+function Public.new()
     local id = get_id()
 
-    new = new or {}
-    new._handlers = {}
-    new._id = id
+    local obj = {
+        _handlers = {},
+        _id = id,
+        _props = {}
+    }
 
-    store[id] = new
+    store[id] = obj
 
-    return setmetatable(new, Public)
+    return setmetatable(obj, Public)
 end
 
 function Public.dispose(self)
@@ -66,13 +75,13 @@ function Public.remove_on_property_changed(self, key, handler)
     for i = 1, #key_handlers do
         local h = key_handlers[i].handler
         if h == handler then
-            table.fast_remove(key_handlers, i)
+            fast_remove(key_handlers, i)
             return
         end
     end
 end
 
-function Public.raise(self, key, value)
+function Public.raise(self, key)
     local handlers = self._handlers[key]
     if not handlers then
         return
@@ -80,19 +89,25 @@ function Public.raise(self, key, value)
 
     for i = 1, #handlers do
         local handler_data = handlers[i]
-        local func = Token.get(handler_data.handler)
+        local func = token_get(handler_data.handler)
         local data = handler_data.data
 
-        func(value, key, data)
+        func(self, data, key)
     end
 end
+local raise = Public.raise
 
-function Public.set(self, key, value)
-    local old = self[key]
-    self[key] = value
+function Public.__index(obj, key)
+    return Public[key] or obj._props[key]
+end
+
+function Public.__newindex(obj, key, value)
+    local props = obj._props
+    local old = props[key]
 
     if old ~= value then
-        self:raise(key, value)
+        props[key] = value
+        raise(obj, key)
     end
 end
 

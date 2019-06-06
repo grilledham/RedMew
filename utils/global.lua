@@ -3,6 +3,15 @@ local Token = require 'utils.token'
 
 local Global = {}
 
+--[[ local weak_table = {__mode = 'v'}
+setmetatable(global.tokens, weak_table)
+
+Event.on_load(
+    function()
+        setmetatable(global.tokens, weak_table)
+    end
+) ]]
+
 function Global.register(tbl, callback)
     if _LIFECYCLE ~= _STAGE.control then
         error('can only be called during the control stage', 2)
