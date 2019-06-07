@@ -86,6 +86,10 @@ function Public.raise(self, key, value)
 end
 local raise = Public.raise
 
+function Public.raise_reset(self)
+    raise(self)
+end
+
 function Public.get_array(self)
     return self._array
 end
@@ -94,34 +98,34 @@ function Public.count(self)
     return #self._array
 end
 
-function Public.get(self, key)
-    return self._array[key]
+function Public.get(self, index)
+    return self._array[index]
 end
 
-function Public.insert(self, key, value)
+function Public.insert(self, index, value)
     local array = self._array
     local count = #array
 
     if value == nil then
-        value = key
-        key = count + 1
+        value = index
+        index = count + 1
 
-        array[key] = value
-        raise(self, key, value)
+        array[index] = value
+        raise(self, index, value)
 
         return
     end
 
-    if key == count + 1 then
-        array[key] = value
-        raise(self, key, value)
+    if index == count + 1 then
+        array[index] = value
+        raise(self, index, value)
 
         return
     end
 
     local new = value
     local current
-    for i = key, count do
+    for i = index, count do
         current = array[i]
 
         array[i] = new
@@ -130,27 +134,35 @@ function Public.insert(self, key, value)
         new = current
     end
 
-    local old = array[key]
+    local old = array[index]
 
     if old ~= value then
-        array[key] = value
-        raise(self, key, value)
+        array[index] = value
+        raise(self, index, value)
     end
 end
 
-function Public.remove(self, key)
+function Public.remove(self, index)
     local array = self._array
     local count = #array
 
-    for i = key, count do
+    for i = index, count do
         local new_value = array[i + 1]
         array[i] = new_value
         raise(self, i, new_value)
     end
 end
+local remove = Public.remove
 
-function Public.raise_reset(self)
-    raise(self)
+function Public.remove_value(self, value)
+    local array = self._array
+
+    for i = 1, #array do
+        if array[i] == value then
+            remove(self, i)
+            break
+        end
+    end
 end
 
 return Public
