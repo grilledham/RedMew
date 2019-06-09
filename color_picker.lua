@@ -2,7 +2,7 @@ local ObservableObject = require 'utils.observable_object'
 local ObservableArray = require 'utils.observable_array'
 local Global = require 'utils.global'
 local Event = require 'utils.event'
-local g = require 'utils.gui_builder'
+local g = require 'utils.gui_builder.builder'
 
 local player_view_models = {}
 
@@ -88,13 +88,7 @@ rows[#rows + 1] = sample_row
 
 local color_picker = g.props({type = 'flow', direction = 'vertical'}):children(rows)
 
-local list_view =
-    g.props({type = 'flow', direction = 'vertical'}):item_source(
-    function(element)
-        local view_model = g.get_view_model(element)
-        return view_model.colors
-    end
-):item_templates({color_picker})
+local list_view = g.props({type = 'flow', direction = 'vertical'}):item_source('colors'):item_templates({color_picker})
 
 local function add(event)
     local view_model = event.view_model

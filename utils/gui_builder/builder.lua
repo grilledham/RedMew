@@ -4,25 +4,27 @@ local Event = require 'utils.event'
 local table = require 'utils.table'
 local ObservableObject = require 'utils.observable_object'
 local ObservableArray = require 'utils.observable_array'
+local Store = require 'utils.gui_builder.store'
+local Binding = require 'utils.gui_builder.binding'
 
 local fast_remove = table.fast_remove
 
 local Public = {}
 Public.__index = Public
 
-local store = {}
-local event_handlers = {}
+local add_to_store = Store.add_to_store
+local get_from_store = Store.get_from_store
+local remove_from_store = Store.remove_from_store
+local get_view_model = Store.get_view_model
+local get_item_source = Store.get_item_source
+local get_view_data = Store.get_view_data
+local get_tag = Store.get_tag
 
-Global.register(
-    {
-        store = store,
-        event_handlers = event_handlers
-    },
-    function(tbl)
-        store = tbl.store
-        event_handlers = tbl.event_handlers
-    end
-)
+Public.get_data = get_from_store
+Public.get_view_model = get_view_model
+Public.get_item_source = get_item_source
+Public.get_view_data = get_view_data
+Public.get_tag = get_tag
 
 local function combine(tbl1, tbl2)
     local result = {}
@@ -42,6 +44,10 @@ local function combine(tbl1, tbl2)
 end
 
 local function append(tbl, value)
+    if value == nil then
+        return tbl
+    end
+
     local result = {}
     local count = 1
 
@@ -62,165 +68,18 @@ local function create_new(tbl1, tbl2)
     return setmetatable(new, Public)
 end
 
-local function add_to_store(element, data)
-    local pi = element.player_index
-    local ei = element.index
-
-    local player_store = store[pi]
-    if not player_store then
-        player_store = {}
-        store[pi] = player_store
-    end
-
-    player_store[ei] = data
-end
-
-local function remove_from_store(element)
-    local pi = element.player_index
-    local ei = element.index
-
-    local player_store = store[pi]
-    if not player_store then
-        return
-    end
-
-    player_store[ei] = nil
-end
-
-local function get_from_store(element)
-    local pi = element.player_index
-    local ei = element.index
-
-    local player_store = store[pi]
-    if not player_store then
-        return nil
-    end
-
-    return player_store[ei]
-end
-
-Public.get_data = get_from_store
-
-local function get_view_model(element)
-    if element == nil then
-        return
-    end
-
-    local data = get_from_store(element)
-
-    if not data then
-        return get_view_model(element.parent)
-    end
-
-    local view_model = data.view_model
-    if view_model ~= nil then
-        return view_model
-    end
-
-    view_model = get_view_model(element.parent)
-    if view_model ~= nil then
-        data.view_model = view_model
-    end
-
-    return view_model
-end
-Public.get_view_model = get_view_model
-
-local function get_item_source(element)
-    if element == nil then
-        return
-    end
-
-    local data = get_from_store(element)
-
-    if not data then
-        return get_item_source(element.parent)
-    end
-
-    local item_source = data.item_source
-    if item_source ~= nil then
-        return item_source
-    end
-
-    item_source = get_item_source(element.parent)
-    if item_source ~= nil then
-        data.item_source = item_source
-    end
-
-    return item_source
-end
-Public.get_item_source = get_item_source
-
-local function get_view_data(element)
-    if element == nil then
-        return
-    end
-
-    local data = get_from_store(element)
-
-    if not data then
-        return get_view_data(element.parent)
-    end
-
-    local view_data = data.view_data
-    if view_data ~= nil then
-        return view_data
-    end
-
-    view_data = get_view_data(element.parent)
-    if view_data ~= nil then
-        data.view_data = view_data
-    end
-
-    return view_data
-end
-Public.get_view_data = get_view_data
-
-local function get_tag(element)
-    local data = get_from_store(element)
-    return data.tag
-end
-Public.get_tag = get_tag
-
-local data_props = {
-    --tag = '_tag',
-    --view_data = '_view_data',
-    view_model = '_view_model'
-    --item_source = '_item_source'
-}
-
 function Public.add_to(template, parent, data)
     data = data or {}
 
     local element = parent.add(template._props)
 
-    local element_data = {template = template}
+    local element_data = {
+        template = template,
+        tag = data.tag or template._tag,
+        view_data = data.view_data,
+        view_model = data.view_model
+    }
     add_to_store(element, element_data)
-
-    element_data.tag = data.tag or template._tag
-    element_data.view_data = data.view_data
-
-    local view_model = data.view_model
-    if view_model then
-        element_data.view_model = view_model
-    else
-        local view_model_getter = template._view_model
-        if view_model_getter then
-            view_model_getter = Token.get(view_model_getter)
-            element_data.view_model = view_model_getter(element, element_data)
-        end
-    end
-
-    local item_source = data.item_source
-    if item_source then
-        element_data.item_source = item_source
-    else
-        local item_source_getter = template._item_source
-        if item_source_getter then
-            item_source_getter = Token.get(item_source_getter)
-            element_data.item_source = item_source_getter(element, element_data)
-        end
-    end
 
     local style = template._style
     if style then
@@ -309,10 +168,10 @@ function event_mt.__index(self, key)
 end
 
 local function handler_factory(event_id)
-    event_handlers[event_id] = {}
+    Store.event_handlers[event_id] = {}
 
     local function add_handler(element, handler_token)
-        local handlers = event_handlers[event_id]
+        local handlers = Store.event_handlers[event_id]
         local pi, ei = element.player_index, element.index
 
         local player_handlers = handlers[pi]
@@ -331,7 +190,7 @@ local function handler_factory(event_id)
     end
 
     local function remove_handler(element, handler_token)
-        local handlers = event_handlers[event_id]
+        local handlers = Store.event_handlers[event_id]
         local pi, ei = element.player_index, element.index
 
         local player_handlers = handlers[pi]
@@ -361,7 +220,7 @@ local function handler_factory(event_id)
     end
 
     local function raise_handlers(event)
-        local handlers = event_handlers[event_id]
+        local handlers = Store.event_handlers[event_id]
 
         local element = event.element
         if not element or not element.valid then
@@ -493,7 +352,21 @@ function Public.view_data(template, view_data)
         template = default_template
     end
 
-    return create_new(template, {_view_data = view_data})
+    local func
+    if type(view_data) == 'function' then
+        func = function(element, data)
+            data.view_data = view_data(element, data)
+        end
+    else
+        func = function(_, data)
+            data.view_data = view_data
+        end
+    end
+
+    add = Token.register(func)
+    local new_add = append(template._add, add)
+
+    return create_new(template, {_add = new_add})
 end
 
 function Public.view_model(template, view_model)
@@ -502,15 +375,54 @@ function Public.view_model(template, view_model)
         template = default_template
     end
 
-    if type(view_model) ~= 'function' then
-        view_model = function()
-            return view_model
+    local func
+    if type(view_model) == 'function' then
+        func = function(element, data)
+            data.view_model = view_data(element, data)
+        end
+    else
+        func = function(_, data)
+            data.view_model = view_model
         end
     end
 
-    view_model = Token.register(view_model)
+    add = Token.register(func)
+    local new_add = append(template._add, add)
 
-    return create_new(template, {_view_model = view_model})
+    return create_new(template, {_add = new_add})
+end
+
+function Public.bind(template, args)
+    if not args then
+        args = template
+        template = default_template
+    end
+
+    local binding = Binding.new(args)
+
+    local new_add = append(template._add, binding.add)
+    local new_remove = append(template._remove, binding.remove)
+
+    return create_new(template, {_add = new_add, _remove = new_remove})
+end
+
+local function item_source_setter(element, item_source)
+    local element_data = get_from_store(element)
+    local template = element_data.template
+    data = template._item_templates_data
+
+    if data == nil then
+        return
+    end
+
+    local add, remove = data.add, data.remove
+    add, remove = Token.get(add), Token.get(remove)
+
+    --remove(element)
+
+    element_data.item_source = item_source
+
+    --add(element)
 end
 
 function Public.item_source(template, item_source)
@@ -519,149 +431,20 @@ function Public.item_source(template, item_source)
         template = default_template
     end
 
-    if type(item_source) ~= 'function' then
-        item_source = function()
-            return item_source
-        end
-    end
+    local t = type(item_source)
 
-    item_source = Token.register(item_source)
-
-    return create_new(template, {_item_source = item_source})
-end
-
-local function split(str, char)
-    if type(str) == 'table' then
-        return str
-    end
-
-    local result = {}
-    local count = 0
-    local len = #str
-
-    local last = 1
-    for i = 1, len do
-        local c = str:sub(i, i)
-        if c == char then
-            local sub = str:sub(last, i - 1)
-            last = i + 1
-
-            if sub ~= '' then
-                count = count + 1
-                result[count] = sub
-            end
-        end
-    end
-
-    if len >= last then
-        result[count + 1] = str:sub(last, len)
-    end
-
-    return result
-end
-
-local function build_bind_getter(props, convert_from)
-    local count = #props
-
-    if convert_from then
-        return function(obj)
-            for i = 1, count do
-                obj = obj[props[i]]
-            end
-
-            return convert_from(obj)
-        end
+    if t == 'table' then
+        item_source.target = item_source_setter
+    elseif t == 'string' then
+        item_source = {source = item_source, target = item_source_setter}
     else
-        return function(obj)
-            for i = 1, count do
-                obj = obj[props[i]]
-            end
-            return obj
-        end
-    end
-end
-
-local function build_bind_setter(props, convert_to)
-    local count = #props
-
-    if convert_to then
-        return function(value, obj)
-            for i = 1, count - 1 do
-                obj = obj[props[i]]
-            end
-
-            obj[props[count]] = convert_to(value)
-        end
-    else
-        return function(value, obj)
-            for i = 1, count - 1 do
-                obj = obj[props[i]]
-            end
-
-            obj[props[count]] = value
-        end
-    end
-end
-
-local context_map = {
-    ['view_model'] = get_view_model,
-    ['view_data'] = get_view_data,
-    ['tag'] = get_tag,
-    ['self'] = function(element)
-        return element
-    end
-}
-
-function Public.bind(template, args)
-    if not args then
-        args = template
-        template = default_template
+        error('item_source must be a table or string.', 2)
     end
 
-    local context = args.context or 'view_model'
-    local target = split(args.target, '.')
-    local source = split(args.source, '.')
-    local convert_to = args.convert_to
-    --local convert_from = args.convert_from
+    local binding = Binding.new(item_source)
 
-    local key = source[1]
-    local getter = build_bind_getter(source)
-    local setter = build_bind_setter(target, convert_to)
-    local context_getter = context_map[context]
-
-    local handler =
-        Token.register(
-        function(obj, element)
-            local value = getter(obj)
-            setter(value, element)
-        end
-    )
-
-    local add =
-        Token.register(
-        function(element)
-            local obj = context_getter(element)
-            if getmetatable(obj) == ObservableObject then
-                obj:on_property_changed(key, handler, element)
-            end
-
-            local value = getter(obj)
-            setter(value, element)
-        end
-    )
-
-    local remove =
-        Token.register(
-        function(element)
-            local obj = context_getter(element)
-            if getmetatable(obj) == ObservableObject then
-                obj:remove_on_property_changed(key, handler, element)
-            end
-        end
-    )
-
-    local new_add = append(template._add, add)
-    local new_remove = append(template._remove, remove)
+    local new_add = append(template._add, binding.add)
+    local new_remove = append(template._remove, binding.remove)
 
     return create_new(template, {_add = new_add, _remove = new_remove})
 end
@@ -753,6 +536,7 @@ function Public.item_templates(template, templates)
         Token.register(
         function(element)
             local item_source = get_item_source(element)
+            d = (serpent.block(item_source))
 
             if item_source == nil then
                 return
@@ -787,13 +571,20 @@ function Public.item_templates(template, templates)
             if getmetatable(item_source) == ObservableArray then
                 item_source:remove_on_array_changed(handler, element)
             end
+
+            local children = element.children
+            for i = 1, #children do
+                local child = children[i]
+                Public.destroy(child)
+            end
         end
     )
 
     local new_add = append(template._add, add)
     local new_remove = append(template._remove, remove)
+    local item_templates_data = {add = add, remove = remove}
 
-    return create_new(template, {_add = new_add, _remove = new_remove})
+    return create_new(template, {_add = new_add, _remove = new_remove, _item_templates_data = item_templates_data})
 end
 
 return Public

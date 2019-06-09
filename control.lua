@@ -139,7 +139,8 @@ if config.redmew_settings.enabled then
 end
 
 --require 'test'
-require 'color_picker'
+--require 'color_picker'
+require 'table_test'
 
 -- Debug-only modules
 if _DEBUG then

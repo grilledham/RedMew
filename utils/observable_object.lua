@@ -82,10 +82,14 @@ function Public.remove_on_property_changed(self, key, handler, data)
     end
 end
 
-function Public.raise(self, key)
+function Public.raise(self, key, old)
     local handlers = self._handlers[key]
     if not handlers then
         return
+    end
+
+    if old == nil then
+        old = self[key]
     end
 
     for i = 1, #handlers do
@@ -93,7 +97,7 @@ function Public.raise(self, key)
         local func = token_get(handler_data.handler)
         local data = handler_data.data
 
-        func(self, data, key)
+        func(self, data, old, key)
     end
 end
 local raise = Public.raise
@@ -108,7 +112,7 @@ function Public.__newindex(obj, key, value)
 
     if old ~= value then
         props[key] = value
-        raise(obj, key)
+        raise(obj, key, old)
     end
 end
 
