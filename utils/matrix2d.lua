@@ -91,7 +91,6 @@ function Public.transform_position(matrix, position)
 
     return {x, y}
 end
-local transform_position = transform_position
 
 function Public.transform_positions(matrix, positions)
     local result = {}
@@ -100,7 +99,7 @@ function Public.transform_positions(matrix, positions)
     local row2 = matrix[2]
 
     for i = 1, #positions do
-        position = positions[i]
+        local position = positions[i]
         local pos_x, pos_y = position[1], position[2]
 
         local x = row1[1] * pos_x + row1[2] * pos_y + row1[3]
