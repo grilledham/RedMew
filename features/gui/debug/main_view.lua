@@ -8,6 +8,7 @@ local pages = {
     require 'features.gui.debug.global_view',
     require 'features.gui.debug.package_view',
     require 'features.gui.debug._g_view',
+    require 'features.gui.debug.gui_data_view',
     require 'features.gui.debug.event_view'
 }
 
@@ -30,7 +31,7 @@ function Public.open_dubug(player)
         return
     end
 
-    frame = center.add {type = 'frame', name = main_frame_name, caption = 'Debuggertron 3001', direction = 'vertical'}
+    frame = center.add {type = 'frame', name = main_frame_name, caption = 'Debuggertron 3002', direction = 'vertical'}
     local frame_style = frame.style
     frame_style.height = 600
     frame_style.width = 900
@@ -78,7 +79,7 @@ Gui.on_click(
         end
 
         local selected_tab_button = frame_data.selected_tab_button
-        selected_tab_button.style.font_color = Color.white
+        selected_tab_button.style.font_color = Color.black
 
         frame_data.selected_tab_button = element
         frame_data.selected_index = index
