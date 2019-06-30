@@ -15,10 +15,10 @@ local deployer_names = {
 }
 
 local direction_offests = {
-    [defines.direction.north] = {0, 1},
-    [defines.direction.east] = {-1, 0},
-    [defines.direction.south] = {0, -1},
-    [defines.direction.west] = {1, 0}
+    [defines.direction.north] = {0, -1},
+    [defines.direction.east] = {1, 0},
+    [defines.direction.south] = {0, 1},
+    [defines.direction.west] = {-1, 0}
 }
 
 local machine_output = defines.inventory.assembling_machine_output
@@ -44,7 +44,8 @@ end
 
 local function get_output_position(area, position, direction)
     local top = area.left_top
-    local x, y = top.x, top.y
+    local bottom = area.right_bottom
+    local x, y = bottom.x - top.x, bottom.y - top.y
     local posx, posy = position.x, position.y
 
     local offset = direction_offests[direction]
