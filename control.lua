@@ -153,6 +153,44 @@ end
 
 require 'features.snake.control'
 
+local R = require 'map_gen.shared.placement_restriction_builder'
+
+--[[ local rule = R.banned_entities({['transport-belt'] = true, ['fast-transport-belt'] = true})
+rule = R.invert(rule)
+rule = R.include_ghosts(rule)
+rule = R.refund_item(rule)
+rule = R.entity_popup(rule)
+rule = R.destroy_entity(rule)
+R.register_on_built_entity(rule) ]]
+local whitelist = {
+    'transport-belt',
+    'fast-transport-belt',
+    'express-transport-belt',
+    'underground-belt',
+    'fast-underground-belt',
+    'express-underground-belt',
+    'small-electric-pole',
+    'medium-electric-pole',
+    'big-electric-pole',
+    'substation',
+    'electric-mining-drill',
+    'burner-mining-drill',
+    'pumpjack',
+    'car',
+    'tank'
+}
+
+local no_ore_rule = R.ban_entities_on_resources()
+local whitelist_rule = R.allowed_entities(whitelist)
+
+local main_rule = R.any({no_ore_rule, whitelist_rule})
+main_rule = R.include_ghosts(main_rule)
+main_rule = R.refund_item(main_rule)
+main_rule = R.entity_popup(main_rule, 'cannot be placed on resources.')
+main_rule = R.destroy_entity(main_rule)
+
+R.register_on_built_entity(main_rule)
+
 -- Debug-only modules
 if _DEBUG then
     require 'features.scenario_data_manipulation'
