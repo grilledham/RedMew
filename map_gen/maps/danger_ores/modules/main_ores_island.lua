@@ -79,6 +79,36 @@ return function(config)
         end
     end
 
+    local function dense_factory()
+        local sources = {
+            {seed = seed_provider(), scale = 1/50, multiplier = 1},
+            {seed = seed_provider(), scale = 1/8, multiplier = 0.1},
+            {seed = seed_provider(), scale = 1/2, multiplier = 0.05},
+        }
+
+        local threshold = 0.4
+        local richness_power = 3
+
+        local inv_threshold = 1 / threshold
+
+        return function(x, y, world)
+            local total = 0
+            for _, source in pairs(sources) do
+                local scale = source.scale
+                local value = Perlin.noise(scale * x, scale * y, source.seed)
+                local normalised_value = (value + 1) / 2
+                total = total + normalised_value * source.multiplier
+            end
+
+            if total > threshold then
+                local amount = math.max(1, 100 * (total * inv_threshold) ^ richness_power)
+                return {name = 'iron-ore', amount = amount}
+            end
+
+            return nil
+        end
+    end
+
     return function(tile_builder, _, spawn_shape, water_shape, random_gen)
         local pattern = {}
         for ore_name, data in pairs(main_ores) do
@@ -102,7 +132,7 @@ return function(config)
 
         local start_ores = b.segment_pattern(start_ore_shapes)
         start_ores = b.rotate(start_ores, math.rad(45))
-        local main_ores_shape = island_factory()
+        local main_ores_shape = dense_factory()
         main_ores_shape = b.apply_effect(main_ores_shape, apply_resource_patches)
         local ores = b.choose(start_ore_shape, start_ores, main_ores_shape)
 

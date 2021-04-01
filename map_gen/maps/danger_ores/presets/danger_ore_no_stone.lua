@@ -61,6 +61,7 @@ local water = require 'map_gen.maps.danger_ores.modules.water'
 local trees = require 'map_gen.maps.danger_ores.modules.trees'
 local enemy = require 'map_gen.maps.danger_ores.modules.enemy'
 local dense_patches = require 'map_gen.maps.danger_ores.modules.dense_patches'
+local dense_regions = require 'map_gen.maps.danger_ores.modules.dense_regions'
 
 local banned_entities = require 'map_gen.maps.danger_ores.modules.banned_entities'
 local allowed_entities = require 'map_gen.maps.danger_ores.config.vanilla_allowed_entities'
@@ -100,7 +101,7 @@ Event.on_init(function()
 end)
 
 local terraforming = require 'map_gen.maps.danger_ores.modules.terraforming'
-terraforming({start_size = 8 * 32, min_pollution = 400, max_pollution = 16000, pollution_increment = 4})
+--terraforming({start_size = 8 * 32, min_pollution = 400, max_pollution = 16000, pollution_increment = 4})
 
 local rocket_launched = require 'map_gen.maps.danger_ores.modules.rocket_launched_simple'
 rocket_launched({win_satellite_count = 500})
@@ -132,10 +133,10 @@ local config = {
     enemy_max_chance = 1 / 6,
     enemy_scale_factor = 32,
     fish_spawn_rate = 0.025,
-    dense_patches = dense_patches,
-    dense_patches_scale = 1 / 48,
+    dense_patches = dense_regions,
+    --[[dense_patches_scale = 1 / 48,
     dense_patches_threshold = 0.55,
-    dense_patches_multiplier = 25
+    dense_patches_multiplier = 25 ]]
 }
 
 return map(config)
