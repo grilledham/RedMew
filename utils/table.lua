@@ -241,6 +241,15 @@ function table.binary_search(t, target)
     return -1 - lower -- ~lower
 end
 
+function table.sum(tbl)
+    local total = 0
+    for _, v in pairs(tbl) do
+        total = total + v
+    end
+
+    return total
+end
+
 -- add table-related functions that exist in base factorio/util to the 'table' table
 require 'util'
 
