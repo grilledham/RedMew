@@ -29,7 +29,8 @@ Never open or read files under `map_gen/data/` (especially `map_gen/data/presets
 - The Factorio modding API is sandboxed; only modules loaded in `control.lua` run in the control stage. Never call `script.on_event` directly — use the wrapper in `utils/event.lua` (`Event.add`, `Event.on_init`, `Event.on_load`, `Event.on_nth_tick`).
 - Never keep state that must survive save/load in plain module locals; register it with `Global.register` from `utils/global.lua`. Closures in global storage are forbidden — store a `Token.register` token instead. `Token.register` must only be called at control stage / `on_init` (desync risk otherwise).
 - Define chat commands with `Command.add` from `utils/command.lua` (handles ranks, locales, server flags) rather than raw `commands.add_command`; build GUIs with the helpers in `utils/gui.lua`.
-- Player-facing strings should be translatable: add keys to `locale/en/*.cfg` (the source of truth) and keep keys in sync across locales — the release pipeline (`.travis/check_locale.sh`) checks for missing/misplaced keys.
+- Player-facing strings should be translatable: add keys to `locale/en/*.cfg` (the source of truth) and keep keys in sync across locales — the CI pipeline (`.github/workflows/CI.yml`, run before PRs to `develop` are merged) checks for missing/misplaced keys and rejects duplicate keys or sections.
+- Whenever adding, editing, or translating strings in `locale/`, follow `docs/LOCALE.md`.
 - Tests run inside Factorio using the framework in `utils/test/`: create a `<module>_tests.lua` next to the code (see `utils/core_tests.lua`) and run the `/test-runner` command in game (`_DEBUG = true` in `config.lua`).
 - Keep changes surgical; feature modules should be independently disableable through `config.lua`.
 
